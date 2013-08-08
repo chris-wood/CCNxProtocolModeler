@@ -10,6 +10,7 @@ import time
 # [1] - Modeling data transfer in content-centric networking (extended version)
 
 # Model parameters used to specify constraints on the topology/scenario being modeled
+# They're populated down at the bottom
 rts = 0
 N = 0
 M = 0
@@ -146,7 +147,7 @@ def calc_p(k, i, filtering = True): # assume filtering (interest aggregation) is
 		for l in range(1, i): #[1, i - 1]
 			p_k_l = calc_p(k, l, filtering)
 
-			print(str(i) + " - calculating filter for l = " + str(l))
+			# print(str(i) + " - calculating filter for l = " + str(l))
 			p_filter_k_l = calc_p_filter(k, l, filtering)
 
 			# More sanity checks
@@ -197,7 +198,8 @@ def calc_p(k, i, filtering = True): # assume filtering (interest aggregation) is
 		return pow(pk1, exponent)
 
 def calc_rt(i): # just assume a link rate of 1ms (global rts can have some pull on this)
-	return 2.0 * i
+	# global rts
+	return 2.0 * i 
 
 # the model assumes that all links have the same round trip delay, which is fine
 # this is the virtual RTT for a single chunk, which is ultimately part of a piece of content somehow, depending on fragmentation
@@ -208,7 +210,7 @@ def calc_VRTT(k, filtering = True):
 	s = 0.0
 
 	# Compute the weighted sum
-	print >> sys.stderr, "Calculating VRTT for k = " + str(k)
+	print("Calculating VRTT for k = " + str(k) + ": "),
 	for i in range(1, N + 1): #[1, N]
 		pp = calc_p(k, i, filtering)
 		if (pp > 1.0):
@@ -220,13 +222,21 @@ def calc_VRTT(k, filtering = True):
 			if (pkj > 1.0):
 				raise Exception("Probabilities (pkj) can't be larger than one")
 			prod = prod * pkj
-		# s = s + (rti * (1.0 - pp) * prod)
-		s = s + (rti * (1.0 - pp))
+		print("n = " + str(i))
+		print("prod = " + str(prod))
+		scale = (rti * (1.0 - pp) * prod)
+		# scale = (rti * (pp) * prod) #* (1.0 - prod))
+		print(scale)
+		print("before: " + str(s))
+		s = s + scale
+		print("after: " + str(s))
+		# s = s + (rti * (1.2 - pp))
 
 	# Safety check
 	if (s < 0):
 		print("k = " + str(k))
 		raise Exception("Can't have negative VRTT")
+	print(s)
 
 	return s
 
@@ -277,6 +287,8 @@ def init_1():
 		lmbda_k.append(lmbda * calc_q(i + 1)) # see the paper for details
 
 def init_2():
+	''' This case has perfectly matching miss probabilities and miss rates - but the VRTT still converges to zero - where is the error?
+	'''
 	global N, M, rts, K, alpha, c, x, sigma, sigma_k, lmbda, lmbda_k, delta 
 
 	M = 20000
@@ -298,11 +310,81 @@ def init_2():
 		sigma_k.append(sigma)
 		lmbda_k.append(lmbda * calc_q(i + 1)) # see the paper for details
 
+def init_3():
+	global N, M, rts, K, alpha, c, x, sigma, sigma_k, lmbda, lmbda_k, delta 
+
+	M = 200
+	K = 200
+	alpha = 2.0
+	lmbda = 40.0
+	W = 1.0
+	sigma = 10   # 10kB chunk size for everything
+	x = 200 * sigma
+	c = 1.0 
+	N = 5 # levels of the binary tree
+	rts = 2.0 # 2ms round trip time between nodes
+	delta = 1.0 
+
+	# Generate the data sets for each specific class of content items...
+	sigma_k = []
+	lmbda_k = []
+	for i in range(K):
+		sigma_k.append(sigma)
+		lmbda_k.append(lmbda * calc_q(i + 1)) # see the paper for details
+
+def init_4():
+	global N, M, rts, K, alpha, c, x, sigma, sigma_k, lmbda, lmbda_k, delta 
+
+	M = 200
+	K = 200
+	alpha = 2.0
+	lmbda = 40.0
+	W = 1.0
+	sigma = 10   # 10kB chunk size for everything
+	x = 2 * sigma
+	c = 1.0 
+	N = 5 # levels of the binary tree
+	rts = 2.0 # 2ms round trip time between nodes
+	delta = 1.0 
+
+	# Generate the data sets for each specific class of content items...
+	sigma_k = []
+	lmbda_k = []
+	for i in range(K):
+		sigma_k.append(sigma)
+		lmbda_k.append(lmbda * calc_q(i + 1)) # see the paper for details
+
+def init_5():
+	''' Copy of 2, but trying to get the expected time in better shape...
+	'''
+	global N, M, rts, K, alpha, c, x, sigma, sigma_k, lmbda, lmbda_k, delta 
+
+	# M = 20000
+	# K = 10000
+	M = 20000
+	K = 400
+	alpha = 1.6
+	lmbda = 40.0
+	W = 1.0
+	sigma = 10.0       # 10kB chunk size for everything
+	x = 200 * sigma
+	c = 1
+	N = 3 # levels of the binary tree
+	rts = 2.0 # 2ms round trip time between nodes
+	delta = 10.0 
+
+	# Generate the data sets for each specific class of content items...
+	sigma_k = []
+	lmbda_k = []
+	for i in range(K):
+		sigma_k.append(sigma)
+		lmbda_k.append(lmbda * calc_q(i + 1)) # see the paper for details
+
 def main():
 	global N, M, rts, K, alpha, c, x, sigma, sigma_k, lmbda, lmbda_k, delta 
 
 	# Toggle which version to run
-	init_1()
+	init_5()
 
 	# Do the calculations
 	n1 = []
@@ -327,6 +409,7 @@ def main():
 		n1.append(calc_p(k, 1))
 		n2.append(calc_p(k, 2))
 		n3.append(calc_p(k, 3))
+
 
 	# Show the plot
 	x = range(K)
